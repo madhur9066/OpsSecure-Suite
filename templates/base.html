@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}OpsSecure Suite{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/fa/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/inter.css') }}">
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            background-color: #f1f5f9;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 220px;
+            height: 100vh;
+            background: #1e293b;
+            color: #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            padding: 16px 14px 10px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #f1f5f9;
+            border-bottom: 1px solid #334155;
+        }
+
+        .sidebar a {
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .sidebar a:hover  { background: #334155; color: #f1f5f9; }
+        .sidebar a.active { background: #334155; color: #f8fafc; font-weight: 600; }
+
+        .submenu          { display: none; }
+        .submenu.show     { display: block; }
+        .submenu a        { padding-left: 34px; font-size: 12.5px; }
+
+        .nav-section-label {
+            padding: 10px 14px 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #475569;
+        }
+
+        /* ── User box ── */
+        .user-box {
+            margin-top: auto;
+            padding: 12px 14px;
+            border-top: 1px solid #334155;
+            font-size: 12px;
+        }
+        .user-box .username { color: #f1f5f9; font-weight: 600; }
+        .user-box .role     { color: #64748b; font-size: 11px; }
+        .user-box .logout-link {
+            display: inline-block;
+            margin-top: 8px;
+            color: #f87171;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .user-box .logout-link:hover { text-decoration: underline; }
+
+        /* ── Main content ── */
+        .main-content {
+            margin-left: 220px;
+            padding: 22px 26px;
+            min-height: 100vh;
+        }
+
+        /* ── Flash messages ── */
+        .flash-container { margin-bottom: 16px; }
+
+        /* ── Cards / tables ── */
+        .card        { border-radius: 10px; border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .table th    { font-size: 13px; }
+        .table td    { font-size: 13px; vertical-align: middle; }
+        h3           { font-size: 20px; font-weight: 600; margin-bottom: 18px; }
+        .form-control, .form-select { font-size: 13px; }
+        .btn         { font-size: 13px; }
+
+        /* ── Toast ── */
+        #toast {
+            position: fixed;
+            bottom: 24px; right: 24px;
+            background: #16a34a;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 7px;
+            display: none;
+            z-index: 9999;
+            font-size: 13px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <i class="fa-solid fa-shield-halved me-2" style="color:#38bdf8"></i>OpsSecure Suite
+    </div>
+
+    <!-- Dashboard -->
+    <a href="{{ url_for('main.index') }}"
+       class="{{ 'active' if current_path == '/' }}">
+        <i class="fa-solid fa-house"></i> Dashboard
+    </a>
+
+    <!-- ── SSL ── -->
+    <div class="nav-section-label">SSL</div>
+
+    <a onclick="toggleMenu('sslMenu')">
+        <i class="fa-solid fa-globe"></i> SSL Monitoring
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="sslMenu" class="submenu">
+        <a href="{{ url_for('sites.list_sites') }}"
+           class="{{ 'active' if current_path == '/sites' }}">
+            <i class="fa-solid fa-list"></i> Sites
+        </a>
+    </div>
+
+    <!-- ── Tools ── -->
+    <div class="nav-section-label">Tools</div>
+
+    <a onclick="toggleMenu('certMenu')">
+        <i class="fa-solid fa-certificate"></i> Certificate Tools
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="certMenu" class="submenu">
+        <a href="{{ url_for('certs.cert_generate') }}"
+           class="{{ 'active' if current_path == '/cert-generate' }}">
+            <i class="fa-solid fa-file-lines"></i> Certificate
+        </a>
+    </div>
+
+    <!-- ── Crypto ── -->
+    <a onclick="toggleMenu('cryptoMenu')">
+        <i class="fa-solid fa-lock"></i> Crypto Tools
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="cryptoMenu" class="submenu">
+        <a href="{{ url_for('crypto.crypto_page') }}"
+           class="{{ 'active' if current_path == '/crypto' }}">
+            <i class="fa-solid fa-key"></i> Encrypt / Decode
+        </a>
+        <a href="{{ url_for('crypto.vault') }}"
+           class="{{ 'active' if current_path == '/vault' }}">
+            <i class="fa-solid fa-database"></i> Secret Vault
+        </a>
+    </div>
+
+    <!-- ── Converters ── -->
+    <a onclick="toggleMenu('toolsMenu')">
+        <i class="fa-solid fa-code"></i> Converters
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="toolsMenu" class="submenu">
+        <a href="{{ url_for('tools.json_converter') }}"
+           class="{{ 'active' if current_path == '/json' }}">
+            <i class="fa-solid fa-arrows-rotate"></i> JSON / YAML / Excel
+        </a>
+    </div>
+
+    <!-- ── Network ── -->
+    <a onclick="toggleMenu('networkMenu')">
+        <i class="fa-solid fa-network-wired"></i> Network Tools
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="networkMenu" class="submenu">
+        <a href="{{ url_for('network.network_page') }}"
+           class="{{ 'active' if current_path == '/network' }}">
+            <i class="fa-solid fa-wave-square"></i> Network Analyzer
+        </a>
+    </div>
+
+    <!-- ── Admin ── -->
+    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+    <div class="nav-section-label">Admin</div>
+    <a onclick="toggleMenu('adminMenu')">
+        <i class="fa-solid fa-users-gear"></i> User Management
+        <i class="fa-solid fa-chevron-down ms-auto" style="font-size:10px"></i>
+    </a>
+    <div id="adminMenu" class="submenu">
+        <a href="{{ url_for('admin.users') }}"
+           class="{{ 'active' if current_path == '/admin/users' }}">
+            <i class="fa-solid fa-users"></i> All Users
+        </a>
+        <a href="{{ url_for('admin.create_user') }}"
+           class="{{ 'active' if current_path == '/admin/users/create' }}">
+            <i class="fa-solid fa-user-plus"></i> Create User
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- ── User box ── -->
+    {% if current_user.is_authenticated %}
+    <div class="user-box">
+        <i class="fa-solid fa-circle-user me-1"></i>
+        <span class="username">{{ current_user.username }}</span><br>
+        <span class="role">{{ current_user.role }}</span>
+        <a href="{{ url_for('auth.logout') }}" class="logout-link">
+            <i class="fa-solid fa-right-from-bracket me-1"></i>Logout
+        </a>
+    </div>
+    {% else %}
+    <div class="user-box">
+        <div style="color:#94a3b8; font-size:12px; margin-bottom:8px;">
+            <i class="fa-solid fa-circle-user me-1"></i>Not signed in
+        </div>
+        <a href="{{ url_for('auth.login') }}"
+           style="display:flex; align-items:center; gap:6px; background:#0ea5e9;
+                  color:#fff; padding:7px 12px; border-radius:7px; font-size:12px;
+                  font-weight:600; text-decoration:none; transition:background .15s;">
+            <i class="fa-solid fa-right-to-bracket"></i>Sign In
+        </a>
+    </div>
+    {% endif %}
+</nav>
+
+<!-- ── Main content ── -->
+<div class="main-content">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show mb-2" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<div id="toast"></div>
+
+<!-- Bootstrap JS -->
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+<script>
+// ── Sidebar toggle ──
+function toggleMenu(menuId) {
+    document.querySelectorAll(".submenu").forEach(m => {
+        if (m.id !== menuId) { m.classList.remove("show"); localStorage.setItem(m.id, "closed"); }
+    });
+    const menu = document.getElementById(menuId);
+    menu.classList.toggle("show");
+    localStorage.setItem(menuId, menu.classList.contains("show") ? "open" : "closed");
+}
+
+// ── Restore sidebar state — only open the menu for the current page ──
+window.addEventListener("DOMContentLoaded", () => {
+    const path = "{{ current_path | default('') }}";
+    const map  = {
+        sslMenu:     ["/sites", "/add-site"],
+        certMenu:    ["/cert-reader", "/cert-match", "/cert-generate"],
+        cryptoMenu:  ["/crypto", "/vault"],
+        toolsMenu:   ["/json"],
+        networkMenu: ["/network"],
+        adminMenu:   ["/admin/users", "/admin/users/create"],
+    };
+    Object.entries(map).forEach(([id, paths]) => {
+        const menu = document.getElementById(id);
+        if (!menu) return;
+        if (paths.includes(path)) {
+            menu.classList.add("show");
+        } else {
+            menu.classList.remove("show");
+            localStorage.removeItem(id);
+        }
+    });
+});
+
+// ── CSRF header for all fetch() calls ──
+const _csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+const _origFetch = window.fetch;
+window.fetch = function(url, opts = {}) {
+    if (_csrfToken && typeof url === "string" && !url.startsWith("http")) {
+        opts.headers = Object.assign({ "X-CSRFToken": _csrfToken }, opts.headers || {});
+    }
+    return _origFetch(url, opts);
+};
+
+// ── Toast helper ──
+function showToast(msg, color = "#16a34a") {
+    const t = document.getElementById("toast");
+    t.innerText        = msg;
+    t.style.background = color;
+    t.style.display    = "block";
+    setTimeout(() => t.style.display = "none", 2500);
+}
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

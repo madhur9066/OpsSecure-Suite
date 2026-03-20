@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% block title %}Sites{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Stat cards ── */
+  .stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .stat-icon.total    { background: #eff6ff; color: #3b82f6; }
+  .stat-icon.healthy  { background: #f0fdf4; color: #16a34a; }
+  .stat-icon.warning  { background: #fffbeb; color: #d97706; }
+  .stat-icon.critical { background: #fef2f2; color: #dc2626; }
+
+  .stat-value { font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat-label { font-size: 12px; color: #64748b; margin-top: 3px; }
+
+  .stat-value.total    { color: #3b82f6; }
+  .stat-value.healthy  { color: #16a34a; }
+  .stat-value.warning  { color: #d97706; }
+  .stat-value.critical { color: #dc2626; }
+
+  /* ── Table card ── */
+  .sites-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    overflow: hidden;
+  }
+
+  .sites-card .table { margin-bottom: 0; font-size: 13px; }
+  .sites-card .table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #64748b;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 11px 14px;
+    font-weight: 600;
+  }
+  .sites-card .table td { padding: 11px 14px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+  .sites-card .table tbody tr:last-child td { border-bottom: none; }
+  .sites-card .table tbody tr:hover { background: #f8fafc; }
+
+  /* ── URL link style ── */
+  .url-link {
+    color: #0ea5e9;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .url-link:hover { text-decoration: underline; }
+
+  /* ── Status pills ── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .pill-healthy  { background: #dcfce7; color: #16a34a; }
+  .pill-warning  { background: #fef3c7; color: #d97706; }
+  .pill-critical { background: #fee2e2; color: #dc2626; }
+  .pill-pending  { background: #f1f5f9; color: #64748b; }
+
+  /* ── Days left badge ── */
+  .days-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* ── Action buttons ── */
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid;
+    background: none;
+    cursor: pointer;
+    transition: all .15s;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .action-btn.details { color: #3b82f6; border-color: #bfdbfe; }
+  .action-btn.details:hover { background: #eff6ff; }
+  .action-btn.scan    { color: #64748b; border-color: #cbd5e1; }
+  .action-btn.scan:hover { background: #f1f5f9; }
+  .action-btn.delete  { color: #dc2626; border-color: #fecaca; }
+  .action-btn.delete:hover { background: #fef2f2; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: #94a3b8;
+  }
+  .empty-state i { font-size: 36px; margin-bottom: 12px; display: block; }
+  .empty-state p { font-size: 13px; margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h3 class="mb-0">
+    <i class="fa-solid fa-globe me-2 text-primary"></i>Sites Monitoring
+  </h3>
+  {% if current_user.role == 'admin' %}
+  <button class="btn btn-success btn-sm"
+          data-bs-toggle="modal"
+          data-bs-target="#addSiteModal">
+    <i class="fa-solid fa-plus me-1"></i>Add Site
+  </button>
+  {% endif %}
+</div>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  {% for label, value, cls, icon in [
+      ("Total Sites", stats.total_sites, "total",    "fa-layer-group"),
+      ("Healthy",     stats.healthy,     "healthy",  "fa-circle-check"),
+      ("Warning",     stats.warning,     "warning",  "fa-triangle-exclamation"),
+      ("Critical",    stats.critical,    "critical", "fa-circle-xmark"),
+  ] %}
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon {{ cls }}">
+        <i class="fa-solid {{ icon }}"></i>
+      </div>
+      <div>
+        <div class="stat-value {{ cls }}">{{ value or 0 }}</div>
+        <div class="stat-label">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Sites table -->
+<div class="sites-card">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>URL</th>
+        <th>IP</th>
+        <th>Expiry Date</th>
+        <th>Days Left</th>
+        <th>Alerts Sent</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in sites %}
+    <tr>
+      <td class="fw-500">{{ s.name or '—' }}</td>
+      <td>
+        <a href="https://{{ s.url }}" target="_blank" class="url-link">{{ s.url }}</a>
+      </td>
+      <td><span style="font-family:monospace;font-size:12px;color:#475569">{{ s.ip or '—' }}</span></td>
+      <td style="font-size:12px;color:#475569">
+        {{ s.expiry[:10] if s.expiry else '—' }}
+      </td>
+      <td>
+        {% if s.days_left is not none %}
+          <span class="days-badge {% if s.days_left < 10 %}text-danger{% elif s.days_left < 30 %}text-warning{% else %}text-success{% endif %}">
+            {{ s.days_left }}d
+          </span>
+        {% else %}
+          <span class="text-secondary">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if s.alerts_sent_count and s.alerts_sent_count > 0 %}
+          <span class="badge bg-warning text-dark">
+            <i class="fa-solid fa-bell me-1"></i>{{ s.alerts_sent_count }}
+          </span>
+        {% else %}
+          <span class="text-secondary">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if s.days_left is none %}
+          <span class="status-pill pill-pending"><i class="fa-solid fa-clock"></i>Pending</span>
+        {% elif s.days_left < 10 %}
+          <span class="status-pill pill-critical"><i class="fa-solid fa-circle-xmark"></i>Critical</span>
+        {% elif s.days_left < 30 %}
+          <span class="status-pill pill-warning"><i class="fa-solid fa-triangle-exclamation"></i>Warning</span>
+        {% else %}
+          <span class="status-pill pill-healthy"><i class="fa-solid fa-circle-check"></i>Healthy</span>
+        {% endif %}
+      </td>
+      <td>
+        <div class="d-flex gap-1">
+          <button class="action-btn details" onclick="viewCert('{{ s.url }}')">
+            <i class="fa-solid fa-magnifying-glass"></i>Details
+          </button>
+          <button class="action-btn scan" onclick="malwareScan('{{ s.url }}')">
+            <i class="fa-solid fa-shield-virus"></i>Scan
+          </button>
+          {% if current_user.role == 'admin' %}
+          <button class="action-btn delete" onclick="confirmDelete('{{ s.url }}', '{{ s.name or s.url }}')">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="8">
+        <div class="empty-state">
+          <i class="fa-solid fa-globe text-secondary"></i>
+          <p>No sites added yet.
+            {% if current_user.role == 'admin' %}
+              <a href="#" data-bs-toggle="modal" data-bs-target="#addSiteModal">Add your first site</a>.
+            {% endif %}
+          </p>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── ADD SITE MODAL ── -->
+<div class="modal fade" id="addSiteModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-plus me-2"></i>Add / Update Site</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="{{ url_for('sites.add_site') }}" id="siteForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-500">Name <span class="text-danger">*</span></label>
+              <input name="name" id="nameField" class="form-control" placeholder="My Service">
+              <div id="nameError" class="text-danger mt-1" style="font-size:12px"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-500">URL <span class="text-danger">*</span></label>
+              <input name="url" id="urlField" class="form-control" placeholder="example.com" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-500">IP Override <span class="text-secondary fw-normal">(optional)</span></label>
+            <input name="ip_override" id="ipField" class="form-control" placeholder="192.168.1.10">
+            <div class="form-text">Use for internal domains reachable via IP only.</div>
+          </div>
+          <div id="sslResult"></div>
+          <div class="d-flex gap-2 mt-3">
+            <button type="button" onclick="validateSSL()" class="btn btn-outline-primary">
+              <i class="fa-solid fa-magnifying-glass me-1"></i>View SSL
+            </button>
+            <button type="submit" name="action" value="save"
+                    onclick="return handleSave()" class="btn btn-success">
+              <i class="fa-solid fa-floppy-disk me-1"></i>Save Site
+            </button>
+            <button type="button" class="btn btn-outline-secondary"
+                    data-bs-dismiss="modal" onclick="resetModal()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CERT DETAIL MODAL ── -->
+<div class="modal fade" id="certModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-certificate me-2"></i>Certificate Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="certModalBody">
+        <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MALWARE SCAN MODAL ── -->
+<div class="modal fade" id="malwareModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-shield-virus me-2"></i>Security Scan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="malwareModalBody">
+        <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Scanning…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE CONFIRM MODAL ── -->
+<div class="modal fade" id="deleteSiteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h6 class="modal-title" id="deleteModalLabel">Delete site?</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="deleteSiteUrl">
+        <p class="mb-0 text-secondary" style="font-size:13px">
+          This will permanently remove the site and all its scan results.
+        </p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="deleteSite()">
+          <i class="fa-solid fa-trash me-1"></i>Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function validateSSL() {
+    const url = document.getElementById("urlField").value.trim();
+    const ip  = document.getElementById("ipField").value.trim();
+    const div = document.getElementById("sslResult");
+
+    if (!url) {
+        div.innerHTML = "<div class='alert alert-warning py-2'>Please enter a URL first.</div>";
+        return;
+    }
+    div.innerHTML = "<div class='text-secondary py-2'><span class='spinner-border spinner-border-sm me-2'></span>Fetching SSL info…</div>";
+
+    fetch("/validate-ssl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, ip_override: ip })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) {
+            div.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-circle-xmark me-2"></i>${d.error}</div>`;
+            return;
+        }
+        const badgeColor = d.days_left < 10 ? "danger" : d.days_left < 30 ? "warning" : "success";
+        const unverifiedBanner = d.unverified
+            ? `<div class="alert alert-warning py-2 mb-2" style="font-size:12px">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                <strong>Self-signed / Internal CA</strong> — certificate fetched without chain verification.
+               </div>` : "";
+        div.innerHTML = `
+            <hr class="my-3">
+            <h6 class="fw-600 mb-2"><i class="fa-solid fa-certificate me-1 text-primary"></i>Certificate Details</h6>
+            ${unverifiedBanner}
+            <table class="table table-bordered table-sm">
+                <tr><th>IP</th><td>${d.ip}</td></tr>
+                <tr><th>Common Name</th><td>${d.common_name || '—'}</td></tr>
+                <tr><th>Issuer</th><td>${d.issuer || '—'}</td></tr>
+                <tr><th>Expiry</th><td>${d.expiry}</td></tr>
+                <tr><th>Days Left</th><td><span class="badge bg-${badgeColor}">${d.days_left} days</span></td></tr>
+            </table>`;
+    })
+    .catch(() => {
+        div.innerHTML = "<div class='alert alert-danger py-2'>Request failed. Check the URL and try again.</div>";
+    });
+}
+
+function handleSave() {
+    const name  = document.getElementById("nameField").value.trim();
+    const url   = document.getElementById("urlField").value.trim();
+    const errEl = document.getElementById("nameError");
+    errEl.innerText = "";
+    if (!url) {
+        document.getElementById("sslResult").innerHTML =
+            "<div class='alert alert-warning py-2'>URL is required.</div>";
+        return false;
+    }
+    if (!name) {
+        errEl.innerText = "Name is required to save.";
+        document.getElementById("nameField").focus();
+        return false;
+    }
+    return true;
+}
+
+function resetModal() {
+    document.getElementById("siteForm").reset();
+    document.getElementById("sslResult").innerHTML = "";
+    document.getElementById("nameError").innerText = "";
+}
+
+function viewCert(site) {
+    const modal = new bootstrap.Modal(document.getElementById("certModal"));
+    document.getElementById("certModalBody").innerHTML =
+        "<div class='text-center py-3'><div class='spinner-border spinner-border-sm'></div> Loading…</div>";
+    modal.show();
+    fetch(`/cert-details?site=${encodeURIComponent(site)}`)
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) {
+                document.getElementById("certModalBody").innerHTML =
+                    `<div class="alert alert-danger">${d.error}</div>`;
+                return;
+            }
+            const badge = d.days_left < 10 ? "danger" : d.days_left < 30 ? "warning" : "success";
+            document.getElementById("certModalBody").innerHTML = `
+                <table class="table table-bordered table-sm">
+                    <tr><th>Common Name</th><td>${d.common_name || '—'}</td></tr>
+                    <tr><th>Issuer</th><td>${d.issuer || '—'}</td></tr>
+                    <tr><th>IP</th><td>${d.ip}</td></tr>
+                    <tr><th>Valid From</th><td>${d.valid_from}</td></tr>
+                    <tr><th>Expiry</th><td>${d.expiry}</td></tr>
+                    <tr><th>Days Left</th><td><span class="badge bg-${badge}">${d.days_left} days</span></td></tr>
+                    <tr><th>Serial</th><td><code style="font-size:11px">${d.serial_number || '—'}</code></td></tr>
+                    <tr><th>SAN</th><td>${(d.san||[]).map(s=>`<code>${s}</code>`).join(', ') || '—'}</td></tr>
+                </table>`;
+        })
+        .catch(() => {
+            document.getElementById("certModalBody").innerHTML =
+                "<div class='alert alert-danger'>Failed to fetch certificate details.</div>";
+        });
+}
+
+function malwareScan(site) {
+    const modal = new bootstrap.Modal(document.getElementById("malwareModal"));
+    document.getElementById("malwareModalBody").innerHTML =
+        "<div class='text-center py-3'><div class='spinner-border spinner-border-sm'></div> Scanning…</div>";
+    modal.show();
+    fetch(`/malware-scan?site=${encodeURIComponent(site)}`)
+        .then(r => r.json())
+        .then(d => {
+            const color  = d.status === "clean" ? "success" : d.status === "warning" ? "warning" : "danger";
+            const issues = d.issues.length
+                ? `<ul class="mt-2 mb-0">${d.issues.map(i => `<li>${i}</li>`).join("")}</ul>`
+                : "<p class='mb-0 mt-2'>No suspicious patterns found.</p>";
+            document.getElementById("malwareModalBody").innerHTML =
+                `<div class="alert alert-${color} mb-0">Status: <strong>${d.status.toUpperCase()}</strong>${issues}</div>`;
+        })
+        .catch(() => {
+            document.getElementById("malwareModalBody").innerHTML =
+                "<div class='alert alert-danger'>Scan failed.</div>";
+        });
+}
+
+function confirmDelete(url, name) {
+    document.getElementById("deleteModalLabel").innerText = `Delete "${name}"?`;
+    document.getElementById("deleteSiteUrl").value = url;
+    new bootstrap.Modal(document.getElementById("deleteSiteModal")).show();
+}
+
+function deleteSite() {
+    const url  = document.getElementById("deleteSiteUrl").value;
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+    fetch("/delete-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf },
+        body: `url=${encodeURIComponent(url)}&csrf_token=${encodeURIComponent(csrf)}`
+    })
+    .then(r => r.json())
+    .then(d => {
+        bootstrap.Modal.getInstance(document.getElementById("deleteSiteModal")).hide();
+        if (d.status === "deleted") {
+            showToast("Site deleted successfully.");
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast("Error: " + d.error, "#dc2626");
+        }
+    })
+    .catch(() => showToast("Delete request failed.", "#dc2626"));
+}
+</script>
+{% endblock %}

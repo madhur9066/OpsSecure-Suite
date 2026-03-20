@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+{% block title %}SSL Certificate Tools{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Tab bar ── */
+  .net-tabs {
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+
+  .net-tab {
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #64748b;
+    border: none;
+    background: none;
+    transition: all .18s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .net-tab:hover { color: #1e293b; background: #f1f5f9; }
+
+  .net-tab.active {
+    background: #0ea5e9;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14,165,233,.35);
+  }
+
+  .net-panel { display: none; }
+  .net-panel.active { display: block; }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    position: relative;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 24px 16px;
+    text-align: center;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+
+  .upload-zone:hover,
+  .upload-zone.dragover { border-color: #0ea5e9; background: #f0f9ff; }
+
+  .upload-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .zone-icon  { font-size: 24px; color: #94a3b8; display: block; margin-bottom: 6px; }
+  .zone-label { font-size: 13px; color: #475569; font-weight: 500; }
+  .zone-hint  { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+
+  .upload-zone.has-file              { border-color: #22c55e; background: #f0fdf4; }
+  .upload-zone.has-file .zone-icon   { color: #22c55e; }
+  .upload-zone.has-file .zone-label  { color: #16a34a; }
+
+  /* ── Info grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+
+  .info-cell {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+
+  .info-cell .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+
+  .info-cell .val {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+  }
+
+  /* ── Match banner ── */
+  .match-banner {
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .match-banner i { font-size: 22px; }
+  .match-ok  { background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; }
+  .match-err { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+
+  /* ── Generator result box ── */
+  .gen-result {
+    background: #0f172a;
+    color: #4ade80;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    border-radius: 8px;
+    padding: 14px 16px;
+    line-height: 1.8;
+    border: 1px solid #1e293b;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .gen-result .t-head  { color: #38bdf8; font-weight: 600; }
+  .gen-result .t-muted { color: #475569; }
+  .gen-result .t-val   { color: #93c5fd; }
+  .gen-result .t-ok    { color: #4ade80; }
+
+  /* ── Download buttons ── */
+  .dl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .18s;
+    text-decoration: none;
+  }
+
+  .dl-btn-cert { background: #dbeafe; color: #1d4ed8; }
+  .dl-btn-cert:hover { background: #bfdbfe; color: #1d4ed8; }
+  .dl-btn-key  { background: #fef3c7; color: #92400e; }
+  .dl-btn-key:hover  { background: #fde68a; color: #92400e; }
+  .dl-btn-zip  { background: #f3e8ff; color: #6d28d9; }
+  .dl-btn-zip:hover  { background: #e9d5ff; color: #6d28d9; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center mb-3 gap-2">
+  <h3 class="mb-0">
+    <i class="fa-solid fa-certificate me-2 text-primary"></i>Certificate Tools
+  </h3>
+</div>
+
+<!-- ── Tab bar ── -->
+<div class="net-tabs">
+  <button class="net-tab" id="tab-generator" onclick="switchTab('generator')">
+    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Cert
+  </button>
+  <button class="net-tab" id="tab-reader" onclick="switchTab('reader')">
+    <i class="fa-solid fa-file-lines"></i> Cert Reader
+  </button>
+  <button class="net-tab" id="tab-matcher" onclick="switchTab('matcher')">
+    <i class="fa-solid fa-key"></i> Cert Matcher
+  </button>
+
+</div>
+
+
+<!-- ═══════════════════ CERT READER ═══════════════════ -->
+<div class="net-panel" id="panel-reader">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3">
+        <i class="fa-solid fa-file-lines me-2 text-primary"></i>SSL Certificate Reader
+      </h6>
+
+      <form method="POST" enctype="multipart/form-data"
+            action="{{ url_for('certs.cert_reader') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-500 mb-1" style="font-size:13px">Upload Certificate</label>
+            <div class="upload-zone" id="readerZone"
+                 ondragover="onDrag(event,'readerZone')"
+                 ondragleave="offDrag('readerZone')"
+                 ondrop="onDrop(event,'readerZone','readerFile','readerLabel')">
+              <input type="file" name="file" id="readerFile"
+                     accept=".pem,.crt,.cer,.der"
+                     onchange="onFileChange('readerFile','readerZone','readerLabel')">
+              <i class="fa-solid fa-file-shield zone-icon"></i>
+              <div class="zone-label" id="readerLabel">Click or drag file here</div>
+              <div class="zone-hint">Supported: .pem, .crt, .cer, .der</div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-magnifying-glass me-1"></i>Parse Certificate
+        </button>
+      </form>
+
+      {% if active_tab == 'reader' and result %}
+      <hr class="my-4">
+      {% if result.error %}
+        <div class="alert alert-danger py-2">
+          <i class="fa-solid fa-circle-xmark me-2"></i>{{ result.error }}
+        </div>
+      {% else %}
+        <h6 class="fw-semibold mb-3">
+          <i class="fa-solid fa-circle-info me-2 text-primary"></i>Certificate Details
+        </h6>
+        <div class="info-grid mb-3">
+          <div class="info-cell"><div class="lbl">Common Name</div><div class="val">{{ result.common_name or '—' }}</div></div>
+          <div class="info-cell"><div class="lbl">Issuer</div><div class="val">{{ result.issuer or '—' }}</div></div>
+          <div class="info-cell"><div class="lbl">Valid From</div><div class="val">{{ result.valid_from or '—' }}</div></div>
+          <div class="info-cell"><div class="lbl">Expiry</div><div class="val">{{ result.expiry or '—' }}</div></div>
+          <div class="info-cell">
+            <div class="lbl">Days Left</div>
+            <div class="val {% if result.days_left is defined %}{% if result.days_left < 10 %}text-danger{% elif result.days_left < 30 %}text-warning{% else %}text-success{% endif %}{% endif %}">
+              {{ result.days_left if result.days_left is defined else '—' }} days
+            </div>
+          </div>
+          <div class="info-cell"><div class="lbl">Serial Number</div><div class="val">{{ result.serial_number or '—' }}</div></div>
+          <div class="info-cell"><div class="lbl">Version</div><div class="val">{{ result.version or '—' }}</div></div>
+        </div>
+        {% if result.san %}
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:8px">Subject Alt Names</div>
+          {% for s in result.san %}
+            <span class="badge bg-secondary me-1 mb-1" style="font-size:11px">{{ s }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ CERT MATCHER ═══════════════════ -->
+<div class="net-panel" id="panel-matcher">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3">
+        <i class="fa-solid fa-key me-2 text-warning"></i>Certificate &amp; Key Matcher
+      </h6>
+
+      <form method="POST" enctype="multipart/form-data"
+            action="{{ url_for('certs.cert_match') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-500 mb-1" style="font-size:13px">
+              Certificate <span class="text-secondary fw-normal">(.pem / .crt / .cer / .der)</span>
+            </label>
+            <div class="upload-zone" id="certZone"
+                 ondragover="onDrag(event,'certZone')"
+                 ondragleave="offDrag('certZone')"
+                 ondrop="onDrop(event,'certZone','certFile','certLabel')">
+              <input type="file" name="cert" id="certFile"
+                     accept=".pem,.crt,.cer,.der"
+                     onchange="onFileChange('certFile','certZone','certLabel')">
+              <i class="fa-solid fa-certificate zone-icon"></i>
+              <div class="zone-label" id="certLabel">Click or drag certificate here</div>
+              <div class="zone-hint">.pem, .crt, .cer, .der</div>
+            </div>
+          </div>
+
+          <div class="col-md-5">
+            <label class="form-label fw-500 mb-1" style="font-size:13px">
+              Private Key <span class="text-secondary fw-normal">(.key / .pem)</span>
+            </label>
+            <div class="upload-zone" id="keyZone"
+                 ondragover="onDrag(event,'keyZone')"
+                 ondragleave="offDrag('keyZone')"
+                 ondrop="onDrop(event,'keyZone','keyFile','keyLabel')">
+              <input type="file" name="key" id="keyFile"
+                     accept=".key,.pem"
+                     onchange="onFileChange('keyFile','keyZone','keyLabel')">
+              <i class="fa-solid fa-key zone-icon"></i>
+              <div class="zone-label" id="keyLabel">Click or drag private key here</div>
+              <div class="zone-hint">.key, .pem</div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-link me-1"></i>Check Match
+        </button>
+      </form>
+
+      {% if active_tab == 'matcher' and result %}
+      <hr class="my-4">
+      {% if result.error %}
+        <div class="alert alert-danger py-2">
+          <i class="fa-solid fa-circle-xmark me-2"></i>{{ result.error }}
+        </div>
+      {% elif result.match %}
+        <div class="match-banner match-ok">
+          <i class="fa-solid fa-circle-check"></i>
+          <div>
+            <div>Certificate and Private Key <strong>MATCH</strong></div>
+            <div style="font-size:12px;font-weight:400;margin-top:2px;opacity:.8">They belong to the same key pair.</div>
+          </div>
+        </div>
+      {% else %}
+        <div class="match-banner match-err">
+          <i class="fa-solid fa-circle-xmark"></i>
+          <div>
+            <div>Certificate and Private Key <strong>DO NOT MATCH</strong></div>
+            <div style="font-size:12px;font-weight:400;margin-top:2px;opacity:.8">Different key pairs detected.</div>
+          </div>
+        </div>
+      {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ GENERATE CERT ═══════════════════ -->
+<div class="net-panel" id="panel-generator">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3">
+        <i class="fa-solid fa-wand-magic-sparkles me-2 text-success"></i>Self-Signed Certificate Generator
+      </h6>
+
+      <div class="row g-3 mb-3">
+
+        <!-- CN -->
+        <div class="col-md-6">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">
+            Common Name (CN) <span class="text-danger">*</span>
+          </label>
+          <input type="text" id="gen-cn" class="form-control"
+                 placeholder="e.g. myserver.local or 192.168.1.10">
+        </div>
+
+        <!-- Org -->
+        <div class="col-md-6">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">Organization</label>
+          <input type="text" id="gen-org" class="form-control" placeholder="e.g. My Company">
+        </div>
+
+        <!-- Country -->
+        <div class="col-md-3">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">Country (2-letter)</label>
+          <input type="text" id="gen-country" class="form-control"
+                 placeholder="US" maxlength="2" value="US">
+        </div>
+
+        <!-- State -->
+        <div class="col-md-4">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">State / Province</label>
+          <input type="text" id="gen-state" class="form-control" placeholder="e.g. California">
+        </div>
+
+        <!-- Locality -->
+        <div class="col-md-5">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">City / Locality</label>
+          <input type="text" id="gen-locality" class="form-control" placeholder="e.g. San Francisco">
+        </div>
+
+        <!-- Valid days -->
+        <div class="col-md-4">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">Valid For (days)</label>
+          <select id="gen-days" class="form-select">
+            <option value="90">90 days (3 months)</option>
+            <option value="180">180 days (6 months)</option>
+            <option value="365" selected>365 days (1 year)</option>
+            <option value="730">730 days (2 years)</option>
+            <option value="1825">1825 days (5 years)</option>
+          </select>
+        </div>
+
+        <!-- Key size -->
+        <div class="col-md-4">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">Key Size</label>
+          <select id="gen-keysize" class="form-select">
+            <option value="2048" selected>2048-bit (recommended)</option>
+            <option value="4096">4096-bit (stronger)</option>
+          </select>
+        </div>
+
+        <!-- SAN -->
+        <div class="col-12">
+          <label class="form-label fw-500 mb-1" style="font-size:13px">
+            Subject Alt Names (SAN)
+            <span class="text-secondary fw-normal" style="font-size:11px">— comma-separated, optional</span>
+          </label>
+          <input type="text" id="gen-san" class="form-control"
+                 placeholder="e.g. myserver.local, 192.168.1.10, *.internal.com">
+          <div class="form-text">DNS names and IP addresses. CN is automatically included.</div>
+        </div>
+
+      </div>
+
+      <button class="btn btn-success" id="gen-btn" onclick="generateCert()">
+        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Generate Certificate
+      </button>
+
+      <!-- Result -->
+      <div id="gen-result-wrap" style="display:none">
+        <hr class="my-4">
+
+        <!-- Summary banner -->
+        <div class="match-banner match-ok mb-3" id="gen-success-banner">
+          <i class="fa-solid fa-circle-check"></i>
+          <div>
+            <div>Certificate generated successfully!</div>
+            <div style="font-size:12px;font-weight:400;margin-top:2px;opacity:.8" id="gen-banner-sub"></div>
+          </div>
+        </div>
+
+        <!-- Details grid -->
+        <div class="info-grid mb-4" id="gen-info-grid"></div>
+
+        <!-- SAN badges -->
+        <div id="gen-san-wrap" style="display:none;margin-bottom:16px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:8px">
+            Subject Alt Names
+          </div>
+          <div id="gen-san-badges"></div>
+        </div>
+
+        <!-- Download buttons -->
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="dl-btn dl-btn-cert" onclick="downloadFile('cert')">
+            <i class="fa-solid fa-file-shield"></i> Download cert.pem
+          </button>
+          <button class="dl-btn dl-btn-key" onclick="downloadFile('key')">
+            <i class="fa-solid fa-key"></i> Download private.key
+          </button>
+          <button class="dl-btn dl-btn-zip" id="gen-zip-btn" onclick="generateCertZip()">
+            <i class="fa-solid fa-file-zipper"></i> Download ZIP (both files)
+          </button>
+        </div>
+
+      </div>
+
+      <div id="gen-error-wrap" style="display:none">
+        <hr class="my-4">
+        <div class="alert alert-danger py-2" id="gen-error-msg"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.net-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.net-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-'   + name).classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  switchTab("{{ active_tab | default('reader') }}");
+});
+
+// ── Upload zone helpers ──────────────────────────────────────────────────
+function onFileChange(inputId, zoneId, labelId) {
+  const file = document.getElementById(inputId).files[0];
+  const zone = document.getElementById(zoneId);
+  if (file) {
+    document.getElementById(labelId).textContent = file.name;
+    zone.classList.add('has-file');
+  } else {
+    document.getElementById(labelId).textContent = 'Click or drag a file here';
+    zone.classList.remove('has-file');
+  }
+}
+
+function onDrag(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId).classList.add('dragover');
+}
+
+function offDrag(zoneId) {
+  document.getElementById(zoneId).classList.remove('dragover');
+}
+
+function onDrop(e, zoneId, inputId, labelId) {
+  e.preventDefault();
+  offDrag(zoneId);
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById(inputId).files = dt.files;
+  onFileChange(inputId, zoneId, labelId);
+}
+
+// ── Certificate Generator ────────────────────────────────────────────────
+
+// Store generated PEM strings for individual downloads
+let _certPem = '';
+let _keyPem  = '';
+
+function setBusy(btnId, busy, label) {
+  const btn = document.getElementById(btnId);
+  if (busy) {
+    btn._orig = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${label}`;
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn._orig;
+    btn.disabled  = false;
+  }
+}
+
+async function generateCert() {
+  const cn = document.getElementById('gen-cn').value.trim();
+  if (!cn) { showToast('Common Name is required.', '#f59e0b'); return; }
+
+  // Hide previous results
+  document.getElementById('gen-result-wrap').style.display = 'none';
+  document.getElementById('gen-error-wrap').style.display  = 'none';
+  _certPem = '';
+  _keyPem  = '';
+
+  setBusy('gen-btn', true, 'Generating…');
+
+  const payload = {
+    common_name: cn,
+    org:         document.getElementById('gen-org').value.trim(),
+    country:     document.getElementById('gen-country').value.trim(),
+    state:       document.getElementById('gen-state').value.trim(),
+    locality:    document.getElementById('gen-locality').value.trim(),
+    valid_days:  parseInt(document.getElementById('gen-days').value),
+    key_size:    parseInt(document.getElementById('gen-keysize').value),
+    san:         document.getElementById('gen-san').value.trim(),
+    _preview:    true,   // tell server to also return PEM strings for preview
+  };
+
+  try {
+    // We call a preview endpoint first to get summary + PEMs, then ZIP download is separate
+    const res = await fetch('/api/cert-preview', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    const d = await res.json();
+
+    if (d.error) {
+      document.getElementById('gen-error-msg').innerHTML =
+        `<i class="fa-solid fa-circle-xmark me-2"></i>${d.error}`;
+      document.getElementById('gen-error-wrap').style.display = 'block';
+      setBusy('gen-btn', false);
+      return;
+    }
+
+    // Store PEMs for individual file downloads
+    _certPem = d.cert_pem;
+    _keyPem  = d.key_pem;
+
+    // Populate summary grid
+    const s = d.summary;
+    const fields = [
+      ['Common Name',  s.common_name],
+      ['Organization', s.org],
+      ['Country',      s.country],
+      ['Valid From',   s.valid_from],
+      ['Expiry',       s.expiry],
+      ['Valid Days',   s.valid_days + ' days'],
+      ['Key Size',     s.key_size + '-bit RSA'],
+      ['Serial',       s.serial],
+    ];
+
+    document.getElementById('gen-info-grid').innerHTML = fields.map(([l, v]) =>
+      `<div class="info-cell"><div class="lbl">${l}</div><div class="val">${v || '—'}</div></div>`
+    ).join('');
+
+    document.getElementById('gen-banner-sub').textContent =
+      `${s.common_name} · ${s.key_size}-bit · valid ${s.valid_days} days`;
+
+    // SAN
+    if (s.san && s.san.length) {
+      document.getElementById('gen-san-badges').innerHTML =
+        s.san.map(x => `<span class="badge bg-secondary me-1 mb-1" style="font-size:11px">${x}</span>`).join('');
+      document.getElementById('gen-san-wrap').style.display = 'block';
+    } else {
+      document.getElementById('gen-san-wrap').style.display = 'none';
+    }
+
+    document.getElementById('gen-result-wrap').style.display = 'block';
+    showToast('Certificate generated ✓');
+
+  } catch(e) {
+    document.getElementById('gen-error-msg').innerHTML =
+      `<i class="fa-solid fa-circle-xmark me-2"></i>${e.message}`;
+    document.getElementById('gen-error-wrap').style.display = 'block';
+  }
+
+  setBusy('gen-btn', false);
+}
+
+// Download individual file from stored PEM string
+function downloadFile(type) {
+  if (type === 'cert' && _certPem) {
+    _download('cert.pem', _certPem, 'application/x-pem-file');
+  } else if (type === 'key' && _keyPem) {
+    _download('private.key', _keyPem, 'application/x-pem-file');
+  } else {
+    showToast('Generate a certificate first.', '#f59e0b');
+  }
+}
+
+function _download(filename, content, mime) {
+  const a = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(new Blob([content], { type: mime })),
+    download: filename,
+  });
+  a.click();
+}
+
+// Download ZIP via server (keeps the same ZIP endpoint)
+async function generateCertZip() {
+  const cn = document.getElementById('gen-cn').value.trim();
+  if (!cn) { showToast('Generate first.', '#f59e0b'); return; }
+  if (!_certPem) { showToast('Generate a certificate first.', '#f59e0b'); return; }
+
+  setBusy('gen-zip-btn', true, 'Preparing…');
+
+  const payload = {
+    common_name: cn,
+    org:         document.getElementById('gen-org').value.trim(),
+    country:     document.getElementById('gen-country').value.trim(),
+    state:       document.getElementById('gen-state').value.trim(),
+    locality:    document.getElementById('gen-locality').value.trim(),
+    valid_days:  parseInt(document.getElementById('gen-days').value),
+    key_size:    parseInt(document.getElementById('gen-keysize').value),
+    san:         document.getElementById('gen-san').value.trim(),
+  };
+
+  try {
+    const res = await fetch('/api/cert-generate', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.error || 'Download failed.', '#dc2626');
+      setBusy('gen-zip-btn', false);
+      return;
+    }
+
+    const blob = await res.blob();
+    const safe = cn.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40);
+    _download(`${safe}_cert.zip`, await blob.arrayBuffer(), 'application/zip');
+
+  } catch(e) {
+    showToast('Download failed: ' + e.message, '#dc2626');
+  }
+
+  setBusy('gen-zip-btn', false);
+}
+
+// Override _download for ArrayBuffer
+function _download(filename, content, mime) {
+  const blob = content instanceof ArrayBuffer
+    ? new Blob([content], { type: mime })
+    : new Blob([content], { type: mime });
+  const a = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(blob),
+    download: filename,
+  });
+  a.click();
+}
+</script>
+{% endblock %}

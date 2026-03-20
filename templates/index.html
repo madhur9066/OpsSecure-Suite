@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h3><i class="fa-solid fa-house me-2 text-primary"></i>Dashboard</h3>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+    {% set cards = [
+        ("Total Sites",       stats.total_sites, "primary", "fa-globe"),
+        ("Healthy (>30d)",    stats.healthy,     "success", "fa-circle-check"),
+        ("Warning (<30d)",    stats.warning,     "warning", "fa-triangle-exclamation"),
+        ("Critical (<10d)",   stats.critical,    "danger",  "fa-skull-crossbones"),
+    ] %}
+    {% for label, value, color, icon in cards %}
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-3 bg-{{ color }} bg-opacity-10">
+                    <i class="fa-solid {{ icon }} fa-lg text-{{ color }}"></i>
+                </div>
+                <div>
+                    <div style="font-size:22px;font-weight:700">{{ value or 0 }}</div>
+                    <div style="font-size:12px;color:#64748b">{{ label }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Tool cards -->
+<div class="row g-3">
+
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid #0ea5e9">
+            <div class="card-body">
+                <h6 class="fw-600"><i class="fa-solid fa-globe me-2 text-primary"></i>SSL Monitoring</h6>
+                <ul class="small text-secondary mb-3">
+                    <li>Track certificate expiry dates</li>
+                    <li>Scheduled scans every 5 minutes</li>
+                    <li>Email alerts at expiry milestones</li>
+                    <li>Internal domain support via IP override</li>
+                </ul>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('sites.list_sites') }}" class="btn btn-sm btn-outline-secondary">
+                        View Sites
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid #10b981">
+            <div class="card-body">
+                <h6 class="fw-600"><i class="fa-solid fa-lock me-2 text-success"></i>Crypto Tools</h6>
+                <ul class="small text-secondary mb-3">
+                    <li>AES encrypt &amp; decrypt (Fernet)</li>
+                    <li>Base64 encode / decode</li>
+                    <li>Secure key generation</li>
+                    <li>Secret Vault storage</li>
+                </ul>
+                <a href="{{ url_for('crypto.crypto_page') }}" class="btn btn-sm btn-success">
+                    <i class="fa-solid fa-key me-1"></i>Open Tool
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid #f59e0b">
+            <div class="card-body">
+                <h6 class="fw-600"><i class="fa-solid fa-arrows-rotate me-2 text-warning"></i>JSON / YAML / Excel</h6>
+                <ul class="small text-secondary mb-3">
+                    <li>JSON ↔ YAML conversion</li>
+                    <li>Excel ↔ JSON conversion</li>
+                    <li>Pretty-format output</li>
+                    <li>Copy or download results</li>
+                </ul>
+                <a href="{{ url_for('tools.json_converter') }}" class="btn btn-sm btn-warning">
+                    <i class="fa-solid fa-code me-1"></i>Open Converter
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid #8b5cf6">
+            <div class="card-body">
+                <h6 class="fw-600"><i class="fa-solid fa-file-lines me-2" style="color:#8b5cf6"></i>Certificate Tools</h6>
+                <ul class="small text-secondary mb-3">
+                    <li>Self-signed certificate generation</li>
+                    <li>Parse uploaded PEM / DER certificates</li>
+                    <li>Match certificate to private key</li>
+                    <li>View SAN, issuer, serial &amp; version</li>
+                </ul>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('certs.cert_generate') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa-solid fa-file-lines me-1"></i>Certificate
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid #0ea5e9">
+            <div class="card-body">
+                <h6 class="fw-600">
+                    <i class="fa-solid fa-network-wired me-2 text-info"></i>Network Tools
+                </h6>
+                <ul class="small text-secondary mb-3">
+                    <li>TCP ping with latency chart</li>
+                    <li>Port scanner with service detection</li>
+                </ul>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('network.network_page') }}" class="btn btn-sm btn-info text-white">
+                        <i class="fa-solid fa-wave-square me-1"></i>Network Analyzer
+
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

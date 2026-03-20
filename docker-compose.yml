@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  ssl_monitor:
+    build: .
+    container_name: ssl_monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      # Persist the database and logs outside the container
+      - ./data:/opt/ssl_monitor
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

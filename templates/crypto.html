@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% block title %}Crypto Tools{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Tab bar ── */
+  .net-tabs {
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+
+  .net-tab {
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #64748b;
+    border: none;
+    background: none;
+    transition: all .18s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .net-tab:hover { color: #1e293b; background: #f1f5f9; }
+
+  .net-tab.active {
+    background: #0ea5e9;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14,165,233,.35);
+  }
+
+  /* ── Panels ── */
+  .net-panel { display: none; }
+  .net-panel.active { display: block; }
+
+  /* ── Editor boxes ── */
+  .editor-box {
+    background: #0f172a;
+    color: #22d3ee;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 14px 16px;
+    min-height: 120px;
+    max-height: 280px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    outline: none;
+    line-height: 1.7;
+  }
+
+  .editor-box:empty::before {
+    color: #475569;
+    font-style: italic;
+  }
+
+  #aesInput:empty::before    { content: 'Paste text to encrypt or decrypt…'; }
+  #b64Input:empty::before    { content: 'Paste text to encode or decode…'; }
+
+  .editor-output {
+    background: #0f172a;
+    color: #4ade80;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 14px 16px;
+    min-height: 120px;
+    max-height: 280px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.7;
+  }
+
+  .editor-output:empty::before {
+    content: '// Output will appear here…';
+    color: #475569;
+    font-style: italic;
+  }
+
+  /* ── Box header ── */
+  .box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .box-actions { display: flex; gap: 4px; }
+
+  .box-actions button {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 2px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #475569;
+    transition: background .15s;
+  }
+
+  .box-actions button:hover { background: #e2e8f0; color: #1e293b; }
+
+  /* ── Password output ── */
+  .pwd-display {
+    background: #0f172a;
+    color: #facc15;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 16px 20px;
+    letter-spacing: .08em;
+    min-height: 58px;
+    word-break: break-all;
+  }
+
+  .pwd-display:empty::before {
+    content: '// Click Generate to create a password…';
+    color: #475569;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  /* ── Strength bar ── */
+  .strength-track {
+    background: #e2e8f0;
+    border-radius: 4px;
+    height: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+
+  .strength-fill {
+    height: 100%;
+    border-radius: 4px;
+    width: 0%;
+    transition: width .3s, background .3s;
+  }
+
+  .strength-label {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 5px;
+  }
+
+  /* ── Checkboxes row ── */
+  .opt-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+  }
+
+  .opt-row label {
+    font-size: 13px;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<form method="POST" action="{{ url_for('crypto.crypto_page') }}" id="cryptoForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="selected_tool" id="selectedToolInput" value="{{ selected_tool or 'password' }}">
+<input type="hidden" name="input_text"     id="hiddenAES">
+<input type="hidden" name="input_text_b64" id="hiddenB64">
+
+<div class="d-flex align-items-center mb-3 gap-2">
+  <h3 class="mb-0"><i class="fa-solid fa-lock me-2 text-success"></i>Crypto Tools</h3>
+</div>
+
+<!-- Tab bar -->
+<div class="net-tabs">
+  <button type="button" class="net-tab active" id="tab-password" onclick="switchTab('password')">
+    <i class="fa-solid fa-shield-halved"></i> Password Gen
+  </button>
+  <button type="button" class="net-tab" id="tab-base64" onclick="switchTab('base64')">
+    <i class="fa-solid fa-arrows-rotate"></i> Base64
+  </button>
+  <button type="button" class="net-tab" id="tab-aes" onclick="switchTab('aes')">
+    <i class="fa-solid fa-key"></i> AES Encrypt
+  </button>
+
+
+</div>
+
+<!-- ═══════════════════ AES ═══════════════════ -->
+<div class="net-panel" id="panel-aes">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-key me-2 text-success"></i>AES Encryption (Fernet)</h6>
+
+      <!-- Key row -->
+      <div class="mb-3">
+        <label class="form-label fw-500 mb-1" style="font-size:13px">AES Key</label>
+        <div class="input-group">
+          <input id="keyField" type="password" name="key"
+                 class="form-control font-monospace" style="font-size:13px"
+                 value="{{ key or '' }}"
+                 placeholder="Leave blank to auto-generate on encrypt">
+          <button type="button" class="btn btn-outline-secondary" onclick="toggleKeyVis()" title="Show/hide">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" onclick="copyKey()" title="Copy key">
+            <i class="fa-solid fa-copy"></i>
+          </button>
+          <button type="button" class="btn btn-outline-success" onclick="generateKey()">
+            <i class="fa-solid fa-key me-1"></i>Generate
+          </button>
+        </div>
+      </div>
+
+      <!-- Input / Output -->
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="box-header">
+            Input
+            <div class="box-actions">
+              <button type="button" onclick="clearAES()">
+                <i class="fa-solid fa-xmark me-1"></i>Clear
+              </button>
+            </div>
+          </div>
+          <div id="aesInput" class="editor-box" contenteditable="true"></div>
+        </div>
+        <div class="col-md-6">
+          <div class="box-header">
+            Output
+            <div class="box-actions">
+              <button type="button" onclick="copyAESOutput()">
+                <i class="fa-solid fa-copy me-1"></i>Copy
+              </button>
+              <button type="button" onclick="downloadAESOutput()">
+                <i class="fa-solid fa-download me-1"></i>Save
+              </button>
+            </div>
+          </div>
+          <div id="aesOutput" class="editor-output">{{ output if selected_tool == 'aes' and output else '' }}</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="mt-3 d-flex gap-2">
+        <button name="action" value="aes_encrypt" class="btn btn-success">
+          <i class="fa-solid fa-lock me-1"></i>Encrypt
+        </button>
+        <button name="action" value="aes_decrypt" class="btn btn-warning">
+          <i class="fa-solid fa-lock-open me-1"></i>Decrypt
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ BASE64 ═══════════════════ -->
+<div class="net-panel" id="panel-base64">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-arrows-rotate me-2 text-primary"></i>Base64 Encode / Decode</h6>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="box-header">Input</div>
+          <div id="b64Input" class="editor-box" contenteditable="true"></div>
+        </div>
+        <div class="col-md-6">
+          <div class="box-header">
+            Output
+            <div class="box-actions">
+              <button type="button" onclick="copyB64Output()">
+                <i class="fa-solid fa-copy me-1"></i>Copy
+              </button>
+            </div>
+          </div>
+          <div id="b64Output" class="editor-output">{{ output if selected_tool == 'base64' and output else '' }}</div>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button name="action" value="base64_encode" class="btn btn-primary">
+          <i class="fa-solid fa-right-long me-1"></i>Encode
+        </button>
+        <button name="action" value="base64_decode" class="btn btn-secondary">
+          <i class="fa-solid fa-left-long me-1"></i>Decode
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PASSWORD GEN ═══════════════════ -->
+<div class="net-panel active" id="panel-password">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-shield-halved me-2 text-warning"></i>Password Generator</h6>
+
+      <!-- Output display -->
+      <div class="box-header">
+        Generated Password
+        <div class="box-actions">
+          <button type="button" onclick="copyPwd()">
+            <i class="fa-solid fa-copy me-1"></i>Copy
+          </button>
+        </div>
+      </div>
+      <div id="pwdDisplay" class="pwd-display mb-2"></div>
+
+      <!-- Strength bar -->
+      <div class="strength-track">
+        <div class="strength-fill" id="strengthFill"></div>
+      </div>
+      <div class="strength-label" id="strengthLabel"></div>
+
+      <!-- Length slider -->
+      <div class="d-flex align-items-center gap-3 mt-3">
+        <label class="form-label mb-0 fw-500" style="font-size:13px;white-space:nowrap">Length</label>
+        <input type="range" id="pwdLen" min="8" max="64" value="20"
+               class="form-range" style="max-width:220px" oninput="updateLen()">
+        <span id="lenLabel" class="badge bg-secondary">20</span>
+      </div>
+
+      <!-- Options -->
+      <div class="opt-row">
+        <label><input type="checkbox" id="optUpper"   checked> Uppercase (A–Z)</label>
+        <label><input type="checkbox" id="optLower"   checked> Lowercase (a–z)</label>
+        <label><input type="checkbox" id="optNumbers" checked> Numbers (0–9)</label>
+        <label><input type="checkbox" id="optSymbols" checked> Symbols (!@#…)</label>
+      </div>
+
+      <div class="mt-3">
+        <button type="button" class="btn btn-warning" onclick="generatePwd()">
+          <i class="fa-solid fa-rotate me-1"></i>Generate
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.net-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.net-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-'   + name).classList.add('active');
+  document.getElementById('selectedToolInput').value = name === 'base64' ? 'base64' : name;
+}
+
+// ── Restore active tab on page load ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = '{{ selected_tool or "password" }}';
+  const tabName = sel === 'base64' ? 'base64' : sel === 'password' ? 'password' : 'aes';
+  switchTab(tabName);
+});
+
+// ── Sync hidden inputs before submit ────────────────────────────────────
+document.getElementById('cryptoForm').addEventListener('submit', () => {
+  document.getElementById('hiddenAES').value = document.getElementById('aesInput').innerText;
+  document.getElementById('hiddenB64').value = document.getElementById('b64Input').innerText;
+  document.getElementById('selectedToolInput').value =
+    document.getElementById('selectedToolInput').value;
+});
+
+// ── AES helpers ──────────────────────────────────────────────────────────
+function generateKey() {
+  fetch('/generate_key').then(r => r.text()).then(k => {
+    document.getElementById('keyField').value = k;
+    showToast('Key generated ✓');
+  });
+}
+
+function toggleKeyVis() {
+  const f = document.getElementById('keyField');
+  const btn = f.nextElementSibling.querySelector('i');
+  f.type = f.type === 'password' ? 'text' : 'password';
+  btn.className = f.type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+}
+
+function copyKey() {
+  const val = document.getElementById('keyField').value;
+  if (!val) { showToast('No key to copy', '#dc2626'); return; }
+  navigator.clipboard.writeText(val);
+  showToast('Key copied ✓');
+}
+
+function copyAESOutput() {
+  const val = document.getElementById('aesOutput').innerText;
+  if (!val) { showToast('Nothing to copy', '#dc2626'); return; }
+  navigator.clipboard.writeText(val);
+  showToast('Copied ✓');
+}
+
+function downloadAESOutput() {
+  const val = document.getElementById('aesOutput').innerText;
+  if (!val) { showToast('Nothing to save', '#dc2626'); return; }
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([val])), download: 'output.txt'
+  });
+  a.click();
+}
+
+function clearAES() {
+  document.getElementById('aesInput').innerText  = '';
+  document.getElementById('aesOutput').innerText = '';
+}
+
+// ── Base64 helpers ───────────────────────────────────────────────────────
+function copyB64Output() {
+  const val = document.getElementById('b64Output').innerText;
+  if (!val) { showToast('Nothing to copy', '#dc2626'); return; }
+  navigator.clipboard.writeText(val);
+  showToast('Copied ✓');
+}
+
+// ── Password generator ───────────────────────────────────────────────────
+const CHARSETS = {
+  upper:   'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  lower:   'abcdefghijklmnopqrstuvwxyz',
+  numbers: '0123456789',
+  symbols: '!@#$%^&*()-_=+[]{}|;:,.<>?',
+};
+
+function generatePwd() {
+  const upper   = document.getElementById('optUpper').checked;
+  const lower   = document.getElementById('optLower').checked;
+  const numbers = document.getElementById('optNumbers').checked;
+  const symbols = document.getElementById('optSymbols').checked;
+  const len     = parseInt(document.getElementById('pwdLen').value);
+
+  let charset = '';
+  if (upper)   charset += CHARSETS.upper;
+  if (lower)   charset += CHARSETS.lower;
+  if (numbers) charset += CHARSETS.numbers;
+  if (symbols) charset += CHARSETS.symbols;
+
+  if (!charset) { showToast('Select at least one character type', '#dc2626'); return; }
+
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  const pwd = Array.from(arr, n => charset[n % charset.length]).join('');
+  document.getElementById('pwdDisplay').innerText = pwd;
+  updateStrength(pwd);
+  showToast('Password generated ✓');
+}
+
+function updateStrength(pwd) {
+  let score = 0;
+  if (pwd.length >= 12) score++;
+  if (pwd.length >= 20) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  const pct    = Math.round((score / 6) * 100);
+  const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#16a34a'];
+  const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
+  const idx    = Math.min(Math.floor(score / 1.5), 4);
+
+  document.getElementById('strengthFill').style.width      = pct + '%';
+  document.getElementById('strengthFill').style.background = colors[idx];
+  document.getElementById('strengthLabel').innerHTML =
+    `Strength: <b style="color:${colors[idx]}">${labels[idx]}</b>`;
+}
+
+function copyPwd() {
+  const val = document.getElementById('pwdDisplay').innerText;
+  if (!val || val.startsWith('//')) { showToast('Generate a password first', '#dc2626'); return; }
+  navigator.clipboard.writeText(val);
+  showToast('Copied ✓');
+}
+
+function updateLen() {
+  document.getElementById('lenLabel').innerText = document.getElementById('pwdLen').value;
+}
+</script>
+{% endblock %}

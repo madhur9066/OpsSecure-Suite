@@ -1,0 +1,21 @@
+[2026-03-21 00:04:56,169] INFO in app: OpsSecure started [env=development]
+[2026-03-21 00:05:04,721] INFO in auth: Logout: user=admin
+[2026-03-21 00:06:19,982] INFO in app: OpsSecure started [env=development]
+[2026-03-21 00:06:28,026] INFO in app: OpsSecure started [env=development]
+[2026-03-21 00:20:47,966] INFO in app: OpsSecure started [env=development]
+[2026-03-21 00:22:11,069] INFO in auth: Login: user=admin ip=127.0.0.1
+[2026-03-21 00:22:24,550] INFO in sites: Site saved: www.google.com by user=admin
+[2026-03-21 00:22:40,203] INFO in sites: Site saved: www.facebook.com by user=admin
+[2026-03-21 00:22:54,237] INFO in sites: Site saved: x.com by user=admin
+[2026-03-21 00:23:17,189] INFO in sites: Site saved: www.flipkart.com by user=admin
+[2026-03-21 00:23:34,181] INFO in sites: Site saved: www.hpe.com by user=admin
+[2026-03-21 00:23:41,041] INFO in sites: Site deleted: x.com by user=admin
+[2026-03-21 00:23:45,450] INFO in sites: Site deleted: www.google.com by user=admin
+[2026-03-21 00:23:49,730] INFO in sites: Site deleted: www.facebook.com by user=admin
+[2026-03-21 00:24:03,050] INFO in sites: Site saved: www.amazon.in by user=admin
+[2026-03-21 00:25:00,738] INFO in sites: Site saved: claude.ai by user=admin
+[2026-03-21 00:25:16,802] INFO in sites: Site saved: www.chatgpt.com by user=admin
+[2026-03-21 00:28:37,936] INFO in sites: Site saved: www.icici.bank.in by user=admin
+[2026-03-21 00:28:47,676] INFO in sites: Site deleted: claude.ai by user=admin
+[2026-03-21 00:28:51,037] INFO in sites: Site deleted: www.chatgpt.com by user=admin
+[2026-03-21 00:28:56,274] INFO in auth: Logout: user=admin

@@ -1,0 +1,579 @@
+{% extends "base.html" %}
+{% block title %}Network Tools{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Tab bar ── */
+  .net-tabs {
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+
+  .net-tab {
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #64748b;
+    border: none;
+    background: none;
+    transition: all .18s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .net-tab:hover { color: #1e293b; background: #f1f5f9; }
+
+  .net-tab.active {
+    background: #0ea5e9;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14,165,233,.35);
+  }
+
+  /* ── Panels ── */
+  .net-panel { display: none; }
+  .net-panel.active { display: block; }
+
+  /* ── Terminal output ── */
+  .net-terminal {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    line-height: 1.75;
+    min-height: 90px;
+    max-height: 340px;
+    overflow-y: auto;
+    border: 1px solid #1e293b;
+  }
+
+  .net-terminal:empty::before {
+    content: '// Results will appear here…';
+    color: #475569;
+  }
+
+  .t-ok    { color: #4ade80; }
+  .t-err   { color: #f87171; }
+  .t-warn  { color: #fbbf24; }
+  .t-info  { color: #38bdf8; }
+  .t-muted { color: #475569; }
+  .t-val   { color: #93c5fd; }
+  .t-head  { color: #38bdf8; font-weight: 600; }
+
+  /* ── Info grid (IP Info) ── */
+  .ip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .ip-cell {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+
+  .ip-cell .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+
+  .ip-cell .val {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ── Ping bar chart ── */
+  .ping-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 56px;
+    margin-top: 14px;
+    padding: 0 2px;
+  }
+
+  .ping-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    min-height: 4px;
+    cursor: default;
+    transition: opacity .15s;
+  }
+
+  .ping-bar:hover { opacity: .8; }
+
+  .ping-stats {
+    display: flex;
+    gap: 18px;
+    font-size: 12px;
+    margin-top: 10px;
+    color: #64748b;
+  }
+
+  .ping-stats b { color: #1e293b; }
+
+  /* ── Port table ── */
+  .port-tbl { font-size: 13px; }
+  .port-tbl th { font-size: 12px; }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .pill-open     { background: #dcfce7; color: #16a34a; }
+  .pill-closed   { background: #fee2e2; color: #dc2626; }
+  .pill-filtered { background: #fef3c7; color: #d97706; }
+
+  /* ── Progress bar ── */
+  .scan-progress { margin-bottom: 14px; }
+
+  .scan-progress .prog-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 5px;
+  }
+
+  .prog-track {
+    background: #e2e8f0;
+    border-radius: 4px;
+    height: 5px;
+    overflow: hidden;
+  }
+
+  .prog-fill {
+    height: 100%;
+    background: #0ea5e9;
+    border-radius: 4px;
+    width: 0%;
+    transition: width .2s;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2">
+  <h3 class="mb-0">
+    <i class="fa-solid fa-network-wired me-2 text-primary"></i>Network Tools
+  </h3>
+</div>
+
+<!-- Tab bar -->
+<div class="net-tabs">
+
+  <button class="net-tab active" id="tab-ping" onclick="switchTab('ping')">
+    <i class="fa-solid fa-wave-square"></i> Ping
+  </button>
+
+  <button class="net-tab" id="tab-port" onclick="switchTab('port')">
+    <i class="fa-solid fa-server"></i> Port Scanner
+  </button>
+</div>
+
+<!-- ═══════════════════ PING ═══════════════════ -->
+<div class="net-panel" id="panel-ping">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-wave-square me-2 text-primary"></i>Ping Host</h6>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <input type="text" id="ping-host" class="form-control" placeholder="e.g. google.com or 8.8.8.8">
+        </div>
+        <div class="col-auto">
+          <select id="ping-count" class="form-select">
+            <option value="4">4 packets</option>
+            <option value="8">8 packets</option>
+            <option value="16">16 packets</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" id="ping-btn" onclick="runPing()">
+            <i class="fa-solid fa-play me-1"></i>Ping
+          </button>
+        </div>
+      </div>
+      <div class="net-terminal" id="ping-out"></div>
+      <div id="ping-chart-wrap" style="display:none">
+        <div class="ping-chart" id="ping-chart"></div>
+        <div class="ping-stats" id="ping-stats"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ IP INFO ═══════════════════ -->
+<div class="net-panel active" id="panel-ip">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-location-dot me-2 text-primary"></i>IP Information</h6>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <input type="text" id="ip-addr" class="form-control" placeholder="IP address — leave blank for your own IP">
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" id="ip-btn" onclick="runIPInfo()">
+            <i class="fa-solid fa-magnifying-glass me-1"></i>Lookup
+          </button>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-outline-secondary" onclick="document.getElementById('ip-addr').value='';runIPInfo()">
+            <i class="fa-solid fa-crosshairs me-1"></i>My IP
+          </button>
+        </div>
+      </div>
+      <div id="ip-grid" class="ip-grid" style="display:none"></div>
+      <div class="net-terminal" id="ip-out"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PORT SCANNER ═══════════════════ -->
+<div class="net-panel" id="panel-port">
+  <div class="card">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="fa-solid fa-server me-2 text-primary"></i>Port Scanner</h6>
+      <div class="row g-2 mb-2">
+        <div class="col-md-5">
+          <input type="text" id="port-host" class="form-control" placeholder="Host / IP address">
+        </div>
+        <div class="col-auto">
+          <select id="port-preset" class="form-select" onchange="onPresetChange()">
+            <option value="">Custom range</option>
+            <option value="common">Common ports</option>
+            <option value="web">Web services</option>
+            <option value="db">Databases</option>
+            <option value="mail">Mail services</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3 align-items-center">
+        <div id="port-range-row" class="col-auto d-flex align-items-center gap-2">
+          <input type="number" id="port-start" class="form-control" style="width:110px" value="1" min="1" max="65535" placeholder="Start">
+          <span class="text-secondary">to</span>
+          <input type="number" id="port-end" class="form-control" style="width:110px" value="1024" min="1" max="65535" placeholder="End">
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" id="port-btn" onclick="runPortScan()">
+            <i class="fa-solid fa-radar me-1"></i>Scan
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="scan-progress" id="scan-progress" style="display:none">
+        <div class="prog-label">
+          <span id="scan-label">Scanning…</span>
+          <span id="scan-pct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+      </div>
+
+      <!-- Results table -->
+      <div id="port-table-wrap" style="display:none">
+        <table class="table table-hover port-tbl mb-0">
+          <thead class="table-light">
+            <tr><th>Port</th><th>Service</th><th>Status</th></tr>
+          </thead>
+          <tbody id="port-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="net-terminal mt-3" id="port-out"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.net-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.net-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-'   + name).classList.add('active');
+}
+
+// ── Generic helpers ──────────────────────────────────────────────────────
+function setBusy(btnId, busy, label) {
+  const btn = document.getElementById(btnId);
+  if (busy) {
+    btn._orig = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${label || 'Running…'}`;
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn._orig;
+    btn.disabled  = false;
+  }
+}
+
+function term(id, html) { document.getElementById(id).innerHTML = html; }
+
+async function apiFetch(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ── PING ─────────────────────────────────────────────────────────────────
+async function runPing() {
+  const host  = document.getElementById('ping-host').value.trim();
+  const count = parseInt(document.getElementById('ping-count').value);
+  if (!host) { showToast('Enter a host first.', '#f59e0b'); return; }
+
+  setBusy('ping-btn', true, 'Pinging…');
+  document.getElementById('ping-chart-wrap').style.display = 'none';
+  term('ping-out', `<span class="t-head">PING ${host}</span>\n<span class="t-muted">Resolving…</span>`);
+
+  const d = await apiFetch('/api/ping', { host, count });
+
+  if (d.error) {
+    term('ping-out', `<span class="t-err">Error: ${d.error}</span>`);
+    setBusy('ping-btn', false);
+    return;
+  }
+
+  let html = `<span class="t-head">PING ${d.host} (${d.ip})</span>\n\n`;
+  d.results.forEach(r => {
+    if (r.ms !== null) {
+      const color = r.ms < 100 ? 't-ok' : r.ms < 300 ? 't-warn' : 't-err';
+      html += `<span class="t-ok">●</span> <span class="t-muted">seq=${r.seq}</span>  <span class="${color}">${r.ms} ms</span>\n`;
+    } else {
+      html += `<span class="t-err">✕</span> <span class="t-muted">seq=${r.seq}</span>  <span class="t-err">No response</span>\n`;
+    }
+  });
+
+  const s = d.summary;
+  html += `\n<span class="t-muted">─────────────────────────────</span>\n`;
+  html += `<span class="t-muted">Sent:</span> <span class="t-val">${s.sent}</span>  `;
+  html += `<span class="t-muted">Received:</span> <span class="t-ok">${s.received}</span>  `;
+  html += `<span class="t-muted">Loss:</span> <span class="${s.loss_pct > 0 ? 't-err' : 't-ok'}">${s.loss_pct}%</span>\n`;
+  if (s.min_ms !== null)
+    html += `<span class="t-muted">Min:</span> <span class="t-val">${s.min_ms}ms</span>  ` +
+            `<span class="t-muted">Avg:</span> <span class="t-val">${s.avg_ms}ms</span>  ` +
+            `<span class="t-muted">Max:</span> <span class="t-val">${s.max_ms}ms</span>`;
+
+  term('ping-out', html);
+
+  // Bar chart
+  const valid = d.results.filter(r => r.ms !== null);
+  if (valid.length) {
+    const max = Math.max(...d.results.map(r => r.ms || 0));
+    const chart = document.getElementById('ping-chart');
+    chart.innerHTML = d.results.map(r => {
+      const h = r.ms ? Math.max(8, Math.round((r.ms / max) * 100)) : 6;
+      const c = !r.ms ? '#f87171' : r.ms < 100 ? '#4ade80' : r.ms < 300 ? '#fbbf24' : '#f87171';
+      return `<div class="ping-bar" style="height:${h}%;background:${c}" title="${r.ms ? r.ms+'ms' : 'failed'}"></div>`;
+    }).join('');
+    document.getElementById('ping-stats').innerHTML =
+      `<span>Min <b>${s.min_ms}ms</b></span><span>Avg <b>${s.avg_ms}ms</b></span>` +
+      `<span>Max <b>${s.max_ms}ms</b></span>` +
+      `<span>Loss <b style="color:${s.loss_pct > 0 ? '#ef4444' : '#16a34a'}">${s.loss_pct}%</b></span>`;
+    document.getElementById('ping-chart-wrap').style.display = 'block';
+  }
+
+  setBusy('ping-btn', false);
+}
+
+// ── DNS LOOKUP ───────────────────────────────────────────────────────────
+async function runDNS() {
+  const host = document.getElementById('dns-host').value.trim();
+  const type = document.getElementById('dns-type').value;
+  if (!host) { showToast('Enter a hostname first.', '#f59e0b'); return; }
+
+  setBusy('dns-btn', true, 'Querying…');
+  term('dns-out', `<span class="t-muted">Querying DNS for ${host} (${type})…</span>`);
+
+  const d = await apiFetch('/api/dns', { host, type });
+
+  if (d.error) {
+    term('dns-out', `<span class="t-err">Error: ${d.error}</span>`);
+    setBusy('dns-btn', false);
+    return;
+  }
+
+  const sc = d.ok ? 't-ok' : 't-err';
+  let html = `<span class="t-head">DNS ${d.type} → ${d.host}</span>\n\n`;
+  html += `<span class="t-muted">Status: </span><span class="${sc}">${d.status}</span>\n`;
+
+  if (d.answers && d.answers.length) {
+    html += `\n<span class="t-muted">Answers (${d.answers.length}):</span>\n`;
+    d.answers.forEach(a => {
+      html += `  <span class="t-muted">•</span> <span class="t-val">${a.data}</span>  <span class="t-muted">TTL=${a.TTL}s</span>\n`;
+    });
+  } else {
+    html += `\n<span class="t-warn">No records found for type ${d.type}</span>`;
+  }
+
+  if (d.authority && d.authority.length) {
+    html += `\n<span class="t-muted">Authority:</span>\n`;
+    d.authority.forEach(a => {
+      html += `  <span class="t-muted">•</span> <span class="t-val">${a.data}</span>\n`;
+    });
+  }
+
+  term('dns-out', html);
+  setBusy('dns-btn', false);
+}
+
+// ── IP INFO ──────────────────────────────────────────────────────────────
+async function runIPInfo() {
+  const ip = document.getElementById('ip-addr').value.trim();
+  setBusy('ip-btn', true, 'Fetching…');
+  document.getElementById('ip-grid').style.display = 'none';
+  term('ip-out', '<span class="t-muted">Fetching IP information…</span>');
+
+  const d = await apiFetch('/api/ipinfo', { ip });
+
+  if (d.error) {
+    term('ip-out', `<span class="t-err">Error: ${d.error}</span>`);
+    setBusy('ip-btn', false);
+    return;
+  }
+
+  const fields = [
+    ['IP Address',  d.ip],
+    ['Version',     d.version],
+    ['City',        d.city],
+    ['Region',      d.region],
+    ['Country',     d.country ? `${d.country} (${d.country_code})` : '—'],
+    ['Postal Code', d.postal  || '—'],
+    ['Latitude',    d.latitude],
+    ['Longitude',   d.longitude],
+    ['Timezone',    d.timezone],
+    ['UTC Offset',  d.utc_offset],
+    ['ISP / Org',   d.org || '—'],
+    ['ASN',         d.asn || '—'],
+  ];
+
+  const grid = document.getElementById('ip-grid');
+  grid.innerHTML = fields.map(([l, v]) =>
+    `<div class="ip-cell"><div class="lbl">${l}</div><div class="val">${v ?? '—'}</div></div>`
+  ).join('');
+  grid.style.display = 'grid';
+  term('ip-out', '');
+
+  setBusy('ip-btn', false);
+}
+
+// ── PORT SCANNER ─────────────────────────────────────────────────────────
+function onPresetChange() {
+  const preset   = document.getElementById('port-preset').value;
+  const startEl  = document.getElementById('port-start');
+  const endEl    = document.getElementById('port-end');
+  const rangeRow = document.getElementById('port-range-row');
+
+  if (preset) {
+    startEl.disabled       = true;
+    endEl.disabled         = true;
+    rangeRow.style.opacity = '.4';
+  } else {
+    startEl.disabled       = false;
+    endEl.disabled         = false;
+    rangeRow.style.opacity = '1';
+  }
+}
+
+async function runPortScan() {
+  const host   = document.getElementById('port-host').value.trim();
+  const preset = document.getElementById('port-preset').value;
+  const start  = parseInt(document.getElementById('port-start').value) || 1;
+  const end    = parseInt(document.getElementById('port-end').value)   || 1024;
+
+  if (!host) { showToast('Enter a host first.', '#f59e0b'); return; }
+  if (!preset && end - start + 1 > 200) {
+    showToast('Custom range limited to 200 ports. Use a preset or narrow the range.', '#f59e0b');
+    return;
+  }
+
+  setBusy('port-btn', true, 'Scanning…');
+  document.getElementById('port-table-wrap').style.display = 'none';
+  document.getElementById('scan-progress').style.display = 'block';
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('scan-label').textContent = 'Scanning…';
+  document.getElementById('scan-pct').textContent = '0%';
+  term('port-out', '');
+  document.getElementById('port-tbody').innerHTML = '';
+
+  // Animate progress while waiting (server does real scan)
+  let fake = 0;
+  const ticker = setInterval(() => {
+    fake = Math.min(fake + Math.random() * 8, 90);
+    document.getElementById('prog-fill').style.width = fake + '%';
+    document.getElementById('scan-pct').textContent  = Math.round(fake) + '%';
+  }, 300);
+
+  const d = await apiFetch('/api/portscan', { host, preset, start, end });
+  clearInterval(ticker);
+
+  document.getElementById('prog-fill').style.width = '100%';
+  document.getElementById('scan-pct').textContent  = '100%';
+  document.getElementById('scan-label').textContent = 'Scan complete';
+
+  if (d.error) {
+    term('port-out', `<span class="t-err">Error: ${d.error}</span>`);
+    setBusy('port-btn', false);
+    return;
+  }
+
+  const tbody = document.getElementById('port-tbody');
+  if (d.results && d.results.length) {
+    d.results.forEach(r => {
+      const pill = r.status === 'open'
+        ? '<span class="pill pill-open">Open</span>'
+        : '<span class="pill pill-filtered">Filtered</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><code>${r.port}</code></td><td>${r.service}</td><td>${pill}</td>`;
+      tbody.appendChild(tr);
+    });
+  } else {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="3" class="text-center text-secondary py-3">No open or filtered ports found.</td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('port-table-wrap').style.display = 'block';
+
+  const s = d.summary;
+  term('port-out',
+    `<span class="t-head">Scan complete — ${d.host} (${d.ip})</span>\n` +
+    `<span class="t-muted">Scanned:</span> <span class="t-val">${d.scanned} ports</span>  ` +
+    `<span class="t-muted">Open:</span> <span class="t-ok">${s.open}</span>  ` +
+    `<span class="t-muted">Filtered:</span> <span class="t-warn">${s.filtered}</span>  ` +
+    `<span class="t-muted">Closed:</span> <span class="t-err">${s.closed}</span>`
+  );
+
+  setBusy('port-btn', false);
+}
+</script>
+{% endblock %}

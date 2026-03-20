@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% block title %}Converter{% endblock %}
+
+{% block extra_head %}
+<style>
+.editor-area {
+    height: 500px;
+    background: #020617;
+    color: #22c55e;
+    font-family: monospace;
+    font-size: 13px;
+    border: 1px solid #334155;
+    border-radius: 0 0 7px 7px;
+    resize: none;
+}
+/* Output textarea sits below its header bar */
+#outputBox {
+    border-radius: 0 0 7px 7px;
+}
+.box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.box-actions button {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 4px;
+}
+.box-actions button:hover { background: #e2e8f0; }
+
+/* Input tabs */
+.input-tabs {
+    display: flex;
+    border-bottom: 1px solid #334155;
+    margin-bottom: 0;
+}
+.input-tab {
+    padding: 7px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: #0f172a;
+    color: #64748b;
+    user-select: none;
+}
+.input-tab.active {
+    background: #020617;
+    color: #22d3ee;
+    border-color: #334155;
+}
+.input-tab:hover:not(.active) { color: #94a3b8; }
+
+/* Upload drop zone */
+.upload-zone {
+    height: 500px;
+    border: 2px dashed #334155;
+    border-radius: 0 0 7px 7px;
+    background: #020617;
+    color: #475569;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    font-size: 13px;
+    position: relative;
+    gap: 8px;
+}
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: #38bdf8;
+    background: #0c1a2e;
+    color: #94a3b8;
+}
+.upload-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+.upload-zone .file-selected {
+    color: #22d3ee;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+    padding: 0 20px;
+    word-break: break-all;
+}
+.upload-zone .remove-file {
+    background: #1e293b;
+    border: 1px solid #475569;
+    color: #f87171;
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 1;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h3><i class="fa-solid fa-arrows-rotate me-2 text-warning"></i>Converter</h3>
+
+<form method="POST" enctype="multipart/form-data"
+      action="{{ url_for('tools.json_converter') }}" id="converterForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="input_mode" id="inputModeField" value="{{ input_mode or 'paste' }}">
+
+<!-- Format selectors + editors — single consistent grid -->
+<div class="row g-3 mb-2 align-items-end">
+    <div class="col-6">
+        <label class="form-label fw-500 mb-1">Input Format</label>
+        <select name="input_format" id="inputFormat" class="form-select" onchange="onFormatChange()">
+            <option value="" disabled {{ 'selected' if not input_format }}>— Select —</option>
+            <option value="json"  {{ 'selected' if input_format == 'json'  }}>JSON</option>
+            <option value="yaml"  {{ 'selected' if input_format == 'yaml'  }}>YAML</option>
+            <option value="excel" {{ 'selected' if input_format == 'excel' }}>Excel (.xlsx / .xls)</option>
+        </select>
+    </div>
+    <div class="col-6">
+        <label class="form-label fw-500 mb-1">Output Format</label>
+        <select name="output_format" id="outputFormat" class="form-select" onchange="onOutputFormatChange()">
+            <option value="" disabled {{ 'selected' if not output_format }}>— Select —</option>
+            <option value="json"  {{ 'selected' if output_format == 'json'  }}>JSON</option>
+            <option value="yaml"  {{ 'selected' if output_format == 'yaml'  }}>YAML</option>
+            <option value="excel" {{ 'selected' if output_format == 'excel' }}>Excel (.xlsx)</option>
+        </select>
+    </div>
+</div>
+
+<!-- Editors — same grid, guaranteed equal width -->
+<div class="row g-3 mb-3">
+
+    <!-- INPUT SIDE -->
+    <div class="col-6">
+        <div class="box-header">
+            Input
+            <div class="box-actions" id="pasteActions">
+                <button type="button" onclick="formatJSON()">Format</button>
+                <button type="button" onclick="clearInput()">Clear</button>
+            </div>
+        </div>
+
+        <!-- Paste / Upload tabs -->
+        <div class="input-tabs">
+            <div class="input-tab" id="tabPaste" onclick="switchTab('paste')">
+                <i class="fa-solid fa-paste me-1"></i>Paste
+            </div>
+            <div class="input-tab" id="tabUpload" onclick="switchTab('upload')">
+                <i class="fa-solid fa-cloud-arrow-up me-1"></i>Upload File
+            </div>
+        </div>
+
+        <!-- Paste panel -->
+        <div id="panelPaste">
+            <textarea id="inputBox" name="input_text"
+                      class="form-control editor-area"
+                      placeholder="Paste your JSON, YAML here…">{{ input_text }}</textarea>
+        </div>
+
+        <!-- Upload panel -->
+        <div id="panelUpload" style="display:none">
+            <div class="upload-zone" id="uploadZone"
+                 ondragover="onDragOver(event)"
+                 ondragleave="onDragLeave(event)"
+                 ondrop="onDrop(event)">
+                <input type="file" name="file" id="fileInput"
+                       accept=".json,.yaml,.yml,.xlsx,.xls"
+                       onchange="onFileSelected(this)">
+
+                <div id="uploadPrompt">
+                    <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2" style="color:#334155"></i><br>
+                    <span>Drag &amp; drop or click to browse</span><br>
+                    <span style="font-size:11px;color:#334155">.json · .yaml · .yml · .xlsx · .xls</span>
+                </div>
+
+                <div id="uploadSelected" style="display:none">
+                    <i class="fa-solid fa-file-circle-check fa-2x mb-2" style="color:#22d3ee"></i>
+                    <div class="file-selected" id="fileLabel"></div>
+                    <button type="button" class="remove-file mt-2"
+                            onclick="removeFile(event)">✕ Remove</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- OUTPUT SIDE -->
+    <div class="col-6">
+        <div class="box-header">
+            Output
+            <div class="box-actions">
+                <button type="button" onclick="copyOutput()">📋 Copy</button>
+                <button type="button" onclick="downloadOutput()">⬇ Save</button>
+            </div>
+        </div>
+        <!-- Spacer matches the input-tabs height so both textareas start at the same Y -->
+        <div style="height:35px; background:#0f172a; border:1px solid #334155;
+                    border-bottom:none; border-radius:7px 7px 0 0;
+                    display:flex; align-items:center; padding:0 12px;
+                    font-size:11px; color:#475569; letter-spacing:.05em; font-weight:600;">
+            RESULT
+        </div>
+        <textarea id="outputBox" readonly
+                  class="form-control editor-area"
+                  placeholder="Converted output appears here…">{{ output or '' }}</textarea>
+    </div>
+
+</div><!-- end flex editors -->
+
+<!-- Actions -->
+<div class="d-flex gap-2">
+    <button class="btn btn-primary" onclick="return validateAndSubmit()">
+        <i class="fa-solid fa-arrows-rotate me-1"></i>Convert
+    </button>
+    <button type="button" class="btn btn-outline-danger" onclick="clearAll()">
+        <i class="fa-solid fa-trash me-1"></i>Clear All
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Tab switching ────────────────────────────────────────────────────
+function switchTab(mode) {
+    document.getElementById("inputModeField").value = mode;
+
+    document.getElementById("tabPaste").classList.toggle("active",  mode === "paste");
+    document.getElementById("tabUpload").classList.toggle("active", mode === "upload");
+
+    document.getElementById("panelPaste").style.display  = mode === "paste"  ? "block" : "none";
+    document.getElementById("panelUpload").style.display = mode === "upload" ? "block" : "none";
+    document.getElementById("pasteActions").style.display = mode === "paste" ? "flex"  : "none";
+
+    // Excel input can only come from file upload — force switch
+    if (mode === "paste") {
+        const fmt = document.getElementById("inputFormat");
+        if (fmt.value === "excel") fmt.value = "";
+    }
+}
+
+// ── Output format change ─────────────────────────────────────────────
+function onOutputFormatChange() {
+    const inf  = document.getElementById("inputFormat").value;
+    const out  = document.getElementById("outputFormat").value;
+    const hint = document.getElementById("excelYamlHint");
+    hint.style.display = (inf === "excel" && out === "yaml") ? "block" : "none";
+}
+
+// ── Format change ────────────────────────────────────────────────────
+function onFormatChange() {
+    const fmt = document.getElementById("inputFormat").value;
+    // Excel must be uploaded — auto-switch to upload tab
+    if (fmt === "excel") {
+        switchTab("upload");
+    }
+    onOutputFormatChange();
+}
+
+// ── File selection ───────────────────────────────────────────────────
+function onFileSelected(input) {
+    if (!input.files.length) return;
+    showFileSelected(input.files[0]);
+}
+
+function showFileSelected(file) {
+    document.getElementById("uploadPrompt").style.display  = "none";
+    document.getElementById("uploadSelected").style.display = "flex";
+    document.getElementById("fileLabel").innerText = file.name;
+    document.getElementById("uploadZone").style.borderColor = "#22d3ee";
+    autoSetFormat(file.name);
+}
+
+function removeFile(e) {
+    e.stopPropagation();   // don't re-open file dialog
+    document.getElementById("fileInput").value = "";
+    document.getElementById("uploadPrompt").style.display   = "flex";
+    document.getElementById("uploadSelected").style.display = "none";
+    document.getElementById("uploadZone").style.borderColor = "#334155";
+}
+
+// ── Drag & drop ──────────────────────────────────────────────────────
+function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById("uploadZone").classList.add("dragover");
+}
+function onDragLeave() {
+    document.getElementById("uploadZone").classList.remove("dragover");
+}
+function onDrop(e) {
+    e.preventDefault();
+    document.getElementById("uploadZone").classList.remove("dragover");
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById("fileInput").files = dt.files;
+    showFileSelected(file);
+}
+
+// ── Auto-set input format from extension ────────────────────────────
+function autoSetFormat(filename) {
+    const ext = filename.split(".").pop().toLowerCase();
+    const map  = { json: "json", yaml: "yaml", yml: "yaml", xlsx: "excel", xls: "excel" };
+    const fmt  = map[ext];
+    if (fmt) {
+        document.getElementById("inputFormat").value = fmt;
+        onFormatChange();
+    }
+}
+
+// ── Validate before submit ───────────────────────────────────────────
+function validateAndSubmit() {
+    const inf  = document.getElementById("inputFormat").value;
+    const out  = document.getElementById("outputFormat").value;
+    const mode = document.getElementById("inputModeField").value;
+
+    if (!inf || !out) {
+        alert("Please select both input and output formats.");
+        return false;
+    }
+    if (inf === out && inf !== "excel") {
+        alert("Input and output formats are the same — nothing to convert.");
+        return false;
+    }
+    if (mode === "upload" && !document.getElementById("fileInput").files.length) {
+        alert("Please select a file to upload.");
+        return false;
+    }
+    if (mode === "paste" && !document.getElementById("inputBox").value.trim()) {
+        alert("Please paste some content to convert.");
+        return false;
+    }
+    return true;
+}
+
+// ── Output helpers ───────────────────────────────────────────────────
+function copyOutput() {
+    const val = document.getElementById("outputBox").value;
+    if (!val) { showToast("Nothing to copy", "#dc2626"); return; }
+    navigator.clipboard.writeText(val);
+    showToast("Copied ✓");
+}
+function downloadOutput() {
+    const val    = document.getElementById("outputBox").value;
+    if (!val) { showToast("Nothing to download", "#dc2626"); return; }
+    const outFmt = document.getElementById("outputFormat").value;
+    const ext    = outFmt === "yaml" ? "yaml" : "json";
+    Object.assign(document.createElement("a"), {
+        href: URL.createObjectURL(new Blob([val], { type: "text/plain" })),
+        download: `output.${ext}`
+    }).click();
+}
+
+// ── JSON pretty-format ───────────────────────────────────────────────
+function formatJSON() {
+    const box = document.getElementById("inputBox");
+    try {
+        box.value = JSON.stringify(JSON.parse(box.value), null, 4);
+        showToast("Formatted ✓");
+    } catch {
+        showToast("Not valid JSON", "#dc2626");
+    }
+}
+
+// ── Clear ────────────────────────────────────────────────────────────
+function clearInput() {
+    document.getElementById("inputBox").value = "";
+    removeFile({ stopPropagation: () => {} });
+}
+function clearAll() {
+    clearInput();
+    document.getElementById("outputBox").value = "";
+}
+
+// ── Restore state on page load (after form POST) ─────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+    const mode = "{{ input_mode or 'paste' }}";
+    switchTab(mode);
+
+    // If a file was previously selected restore the UI hint
+    {% if uploaded_filename %}
+    document.getElementById("uploadPrompt").style.display   = "none";
+    document.getElementById("uploadSelected").style.display = "flex";
+    document.getElementById("fileLabel").innerText          = "{{ uploaded_filename }}";
+    document.getElementById("uploadZone").style.borderColor = "#22d3ee";
+    {% endif %}
+});
+</script>
+{% endblock %}

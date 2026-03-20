@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}500 — Server Error{% endblock %}
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center" style="min-height:60vh;text-align:center">
+    <i class="fa-solid fa-triangle-exclamation fa-4x text-danger mb-4"></i>
+    <h2 class="fw-700">500 — Server Error</h2>
+    <p class="text-secondary mb-4" style="max-width:440px">Something went wrong on our end. The error has been logged.</p>
+    <a href="/" class="btn btn-outline-primary">
+        <i class="fa-solid fa-house me-2"></i>Back to Dashboard
+    </a>
+</div>
+{% endblock %}

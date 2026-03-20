@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}403 — Forbidden{% endblock %}
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center" style="min-height:60vh;text-align:center">
+    <i class="fa-solid fa-ban fa-4x text-danger mb-4"></i>
+    <h2 class="fw-700">403 — Forbidden</h2>
+    <p class="text-secondary mb-4" style="max-width:440px">You don't have permission to access this page.</p>
+    <a href="/" class="btn btn-outline-primary">
+        <i class="fa-solid fa-house me-2"></i>Back to Dashboard
+    </a>
+</div>
+{% endblock %}
